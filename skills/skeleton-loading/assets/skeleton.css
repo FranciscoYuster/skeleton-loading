@@ -1,0 +1,88 @@
+/* Baseline skeleton shimmer. Retune the tokens, keep the mechanics.
+   Enforces SKILL.md hard rules 2, 3, 4 and 8. */
+
+/* --- Rule 3: one directional sweep, slow, constant, low contrast --- */
+@keyframes skeleton-sweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.skeleton {
+  --skeleton-base: color-mix(in oklch, currentColor 8%, transparent);
+  --skeleton-highlight: color-mix(in oklch, currentColor 14%, transparent);
+  --skeleton-duration: 1.8s;
+
+  background-image: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  /* No negative delay anywhere: every box shares one phase so the sweep
+     crosses the layout as a single wave. */
+  animation: skeleton-sweep var(--skeleton-duration) linear infinite;
+  border-radius: 4px;
+  user-select: none;
+}
+
+[dir="rtl"] .skeleton { animation-direction: reverse; }
+
+/* --- Rule 5: reserve the real box, not a guess --- */
+.skeleton--text {
+  height: 1em;
+  width: 72%; /* 60-80%; set the last line of a block narrower */
+}
+.skeleton--text:last-child { width: 48%; }
+
+.skeleton--media {
+  width: 100%;
+  aspect-ratio: var(--skeleton-aspect, 16 / 9);
+}
+
+.skeleton--avatar {
+  width: var(--skeleton-avatar-size, 40px);
+  height: var(--skeleton-avatar-size, 40px);
+  border-radius: 50%;
+}
+
+/* --- Rule 4: reduced motion gets no skeleton at all ---
+   The region hides its boxes and shows the text status instead. A frozen gray
+   box is the worst-measured loading state; see references/research.md. */
+@media (prefers-reduced-motion: reduce) {
+  [data-skeleton-region] .skeleton { display: none; }
+  [data-skeleton-region] .skeleton-status { display: block; }
+}
+.skeleton-status { display: none; }
+
+/* --- Step 5: swap in, do not pop --- */
+@keyframes skeleton-content-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+[data-skeleton-region][aria-busy="false"] > * {
+  animation: skeleton-content-in 150ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-skeleton-region][aria-busy="false"] > * { animation: none; }
+}
+
+/* --- Rule 8 + step 4: required markup shape ---
+
+<div data-skeleton-region aria-busy="true">
+  <p class="skeleton-status" role="status">Loading…</p>
+
+  <!-- Mounted only after the 200ms gate (rule 1), never at 0ms. -->
+  <div class="skeleton skeleton--media" aria-hidden="true"></div>
+  <p class="skeleton skeleton--text" aria-hidden="true"></p>
+  <p class="skeleton skeleton--text" aria-hidden="true"></p>
+</div>
+
+Escalation the component must implement (step 4):
+  200ms  mount the skeleton
+  3s     swap to spinner + <p role="status">Still loading…</p>, or partial render
+  10s    add agency: estimate, retry, cancel, continue in background
+  error  remove the skeleton, render the named failure + retry
+On resolve or error: set aria-busy="false" and unmount every .skeleton box.
+*/
